@@ -36,3 +36,22 @@ trx %>%
 
 plot(t$data.transactions.date, t$data.transactions.amount, cex = 0.2)  
   
+
+
+
+
+
+
+
+
+
+
+
+
+
+budget_list <- get_budgets()
+
+paste("You have", nrow(budget_list), "budgets. Which to select?")
+for (b in (budget_list$data.budgets.name)) {
+  paste()
+}
