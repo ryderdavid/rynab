@@ -2,7 +2,7 @@ source('get_transactions.R')
 
 
 
-budget_id <- read_file('.keys/budget_id') %>% str_trim()
+budget_id <- read_file('keys/budget_id') %>% str_trim()
 
 
 

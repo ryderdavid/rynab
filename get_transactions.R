@@ -4,7 +4,7 @@ library(httr)
 library(jsonlite)
 
 y_api_url <- 'https://api.youneedabudget.com/v1'
-y_api_key <- read_file('.keys/y_api_key') %>% str_trim()
+y_api_key <- read_file('keys/y_api_key') %>% str_trim()
 
 
 get_transactions <- function(budget_id, since_date = NULL) {
