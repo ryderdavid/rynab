@@ -1,57 +1,59 @@
-source('get_transactions.R')
+library(googlesheets)
+library(googlesheets4)
 
-
-
+# pull the budget ID from the file stored in the keys dir. 
+# TO DO: make this interactive.
 budget_id <- read_file('keys/budget_id') %>% str_trim()
 
 
+# Get the Expenses Google Sheet by its key,
+exp_gs <- gs_key('1ZsHw9HhphBLj18kVY7xo861p6H5ABGYfH0UuStyX0Lg')
 
-
-
-trx <- get_transactions(budget_id = budget_id, since_date = '2015-01-01')
-
-trx_for_export <- 
-  trx %>% 
-  filter(data.transactions.flag_color %in% c('red', 'purple')) %>% 
-  transmute(
-    Timestamp = as.Date(data.transactions.date), 
-    Payee = 'Ryder',
-    Amount = data.transactions.amount / 1000 * -1,
-    Purpose = case_when(.$data.transactions.flag_color == 'red' ~ 'for us',
-                        .$data.transactions.flag_color == 'purple' ~ 'for you'),
-    Description = paste(data.transactions.payee_name, data.transactions.memo, sep= ' - ')
+# Open as DF the first sheet with proper formatting
+exp_df <- gs_read(exp_gs, ws = 1, skip = 1) %>% 
+  mutate(
+    Timestamp = as.POSIXct(Timestamp, format = '%m/%d/%Y %H:%M:%S')
   )
 
-trx_for_export %>% View()
+# Get the latest date of a transaction in the most recently archived sheet
+# (sheet 2) -- this will be the 'since' date when calling YNAB API for
+# transactions
 
 
-plot(trx_for_export$Timestamp, trx_for_export$Amount)
+######## NEED TO CREATE FLEXIBLE TIME CASTING TO CORRECT FOR WEIRD DATA ENTRY
 
 
-trx %>% 
-  filter(grepl('travel', str_to_lower(data.transactions.category_name))) %>% 
-  filter(data.transactions.amount < 0) %>% 
-  mutate(data.transactions.amount = data.transactions.amount / -1000,
-         data.transactions.date = as.Date(data.transactions.date)) -> t
+last_date <- 
+  gs_read(exp_gs, ws = 2, skip = 1) %>% 
+  mutate(
+    Timestamp = as.Date(Timestamp)  
+  ) %>% pull(Timestamp)
+# %>% 
+#   pull(Timestamp) %>% 
+#   max() %>% 
+#   as.Date()
+#   
 
-plot(t$data.transactions.date, t$data.transactions.amount, cex = 0.2)  
-  
+ytest <- get_transactions(budget_id = budget_id, since_date = last_date)
+
+ynab_trx <- 
+  get_transactions(budget_id = budget_id, since_date = last_date) %>% 
+  filter(data.transactions.flag_color %in% c('red', 'purple')) %>%
+  transmute(
+    Timestamp = as.POSIXct(data.transactions.date),
+    `Who is Paying?` = 'Ryder',
+    Amount = (data.transactions.amount / 1000 * -1) %>% round(digits = 0),
+    Purpose = case_when(.$data.transactions.flag_color == 'red' ~ 'for us',
+                        .$data.transactions.flag_color == 'purple' ~ 'for you'),
+    Description = paste(data.transactions.payee_name,
+                        data.transactions.memo,
+                        sep= ' - ')
+    )
 
 
 
 
+# union(trx, exp)
 
 
 
-
-
-
-
-
-
-budget_list <- get_budgets()
-
-paste("You have", nrow(budget_list), "budgets. Which to select?")
-for (b in (budget_list$data.budgets.name)) {
-  paste()
-}
