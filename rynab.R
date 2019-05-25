@@ -1,5 +1,6 @@
 library(googlesheets)
 library(googlesheets4)
+library(lubridate)
 
 source('get_functions.R')
 
@@ -18,7 +19,10 @@ exp_gs <- read_file('keys/expenses_sheet_id') %>% str_trim() %>% gs_key()
 # transaction by the spender to find the spender's last transaction
 s <- 1  # sheet counter token
 while (s > 0) {
-  sht <- gs_read(exp_gs, ws = s, skip = 1)
+  sht <- gs_read(exp_gs, ws = s, skip = 1) %>% 
+    mutate(  # remove formatting from transaction amounts
+      `Expense Amount` = as.numeric(str_extract(`Expense Amount`, '\\d+'))
+      ) 
   
   # Check to see if spender occurs in currently loaded sheet
   if (!spender %in% unique(sht$`Who is Paying?`)) {  # if no, iterate to next
@@ -27,34 +31,25 @@ while (s > 0) {
 }
 
 
-
-# Get the latest date of spender's transactions in the most recently archived
-# sheet (sheet 2) -- this will be the 'since' date when calling YNAB API for
-# transactions
+# Get the latest date of spender's transactions logged in expenses tracker --
+# this will be the 'since' date when calling YNAB API for transactions
 last_date <- 
   sht %>% 
-  # Next 7 rows clean up any hand entered dates not produced by Google Forms
-  separate(Timestamp, c('Date', 'Time'), sep = ' ') %>% 
-  mutate(
-    Date = str_replace_all(Date, '[:punct:]', '/'),
-    Time = ifelse(is.na(Time), '0:00:00', Time)
-  ) %>% 
-  unite(col = 'Timestamp', Date, Time, sep = ' ') %>% 
-  mutate(Timestamp = as.POSIXct(Timestamp, format = '%m/%d/%Y %H:%M:%S')) %>% 
   filter(`Who is Paying?` == spender) %>% 
   pull(Timestamp) %>% 
   max()
 
 
-# Get all transactions from selected budget by budget_id and since the selected last_date
+# Get all transactions from selected budget by budget_id and since the selected
+# last_date
 ynab_trx <- 
   get_transactions(budget_id = budget_id, since_date = last_date) %>% 
   filter(data.transactions.flag_color %in% c('red', 'purple')) %>%
   transmute(
-    Timestamp        = as.POSIXct(data.transactions.date),
+    Timestamp        = ymd_hms(paste(data.transactions.date, '00:00:00')),
     `Who is Paying?` = 'Ryder',
-    Amount           = (data.transactions.amount / 1000 * -1) %>% round(digits = 0),
-    Purpose          = case_when(
+    `Expense Amount` = (data.transactions.amount / 1000 * -1) %>% round(digits = 0),
+    `I spent this:`  = case_when(
                          .$data.transactions.flag_color == 'red' ~ 'for us',
                          .$data.transactions.flag_color == 'purple' ~ 'for you'
                          ),
@@ -63,7 +58,12 @@ ynab_trx <-
                          paste(data.transactions.payee_name, 
                                data.transactions.memo, sep = ' - ')
                          )
-    )
+    ) %>% 
+  
+  # Next two lines remove any transactions that have already been logged on the
+  # google sheet for the "since" day in the tracker
+  bind_rows(., sht) %>% 
+  filter(`Who is Paying?` == spender & Timestamp >= last_date & !duplicated(.))
 cat('Got ', nrow(ynab_trx), ' new shared transactions from YNAB.', sep = '')
 
 
@@ -73,7 +73,7 @@ for (r in 1:nrow(ynab_trx)) {
   
   # notify of successful upload to sheet.
   cat('Added: \"$',  
-      ynab_trx[r,]$Amount, 
+      ynab_trx[r,]$`Expense Amount`, 
       ' - ', 
       ynab_trx[r,]$Description, 
       '\" to tracker.\n', 
@@ -84,7 +84,7 @@ for (r in 1:nrow(ynab_trx)) {
 cat(nrow(ynab_trx), ' new transactions added to', ' \"', 
     exp_gs$sheet_title, '\" sheet from ', spender, '.', sep=''
     )
-cat('Total: $', sum(ynab_trx$Amount), sep='')
-cat('Total shared costs: $', sum(ynab_trx$Amount[ynab_trx$Purpose == 'for us']), sep='')
-cat('Total full-payback costs: $', sum(ynab_trx$Amount[ynab_trx$Purpose == 'for you']), sep='')
+cat('Total: $', sum(ynab_trx$`Expense Amount`), sep='')
+cat('Total shared costs: $', sum(ynab_trx$`Expense Amount`[ynab_trx$`I spent this:` == 'for us']), sep='')
+cat('Total full-payback costs: $', sum(ynab_trx$`Expense Amount`[ynab_trx$`I spent this:` == 'for you']), sep='')
 browseURL(exp_gs$browser_url)
