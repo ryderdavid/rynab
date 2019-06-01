@@ -3,8 +3,25 @@ library(magrittr)
 library(httr)
 library(jsonlite)
 
+read_y_api_key <- function()
+{ 
+  i <- readline(prompt="Enter a valid YNAB API key: ")
+  i <- as.integer(n)
+  if (nchar(i) != 64){
+    n <- read_y_api_key()
+  }
+  return(n)
+}
+
+
+
 y_api_url <- 'https://api.youneedabudget.com/v1'
-y_api_key <- read_file('keys/y_api_key') %>% str_trim()
+
+if (!exists('y_api_key')) {
+  y_api_key <- read_y_api_key()
+}
+
+# y_api_key <- read_file('keys/y_api_key') %>% str_trim()
 
 
 

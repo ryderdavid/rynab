@@ -1,11 +1,15 @@
 library(googlesheets)
+# install.packages("devtools")
+# devtools::install_github("tidyverse/googlesheets4")
 library(googlesheets4)
 library(lubridate)
 
 source('get_functions.R')
 
 # pull the budget ID from the file stored in the keys dir. 
-budget_id <- read_file('keys/budget_id') %>% str_trim()
+budget_id <- 'last-used'
+
+#read_file('keys/budget_id') %>% str_trim()
 
 # Identify Spender for script - this can be made into a variable later
 spender <- 'Ryder'
