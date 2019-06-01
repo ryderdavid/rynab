@@ -1,6 +1,7 @@
 library(googlesheets)
 # install.packages("devtools")
 # devtools::install_github("tidyverse/googlesheets4")
+# install.packages("httpuv")
 library(googlesheets4)
 library(lubridate)
 
@@ -58,9 +59,9 @@ ynab_trx <-
                          .$data.transactions.flag_color == 'purple' ~ 'for you'
                          ),
     Description      = ifelse(
-                         is.na(.$data.transactions.memo), .$data.transactions.payee_name,
-                         paste(data.transactions.payee_name, 
-                               data.transactions.memo, sep = ' - ')
+                         is.na(.$data.transactions.memo), str_squish(.$data.transactions.payee_name),
+                         paste(str_squish(data.transactions.payee_name), 
+                               str_squish(data.transactions.memo), sep = ' - ')
                          )
     ) %>% 
   

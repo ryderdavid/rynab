@@ -14,12 +14,14 @@ read_y_api_key <- function()
 }
 
 
-
 y_api_url <- 'https://api.youneedabudget.com/v1'
+y_api_key <- Sys.getenv('y_api_key')
 
-if (!exists('y_api_key')) {
+if (Sys.getenv('y_api_key') == "") {
   y_api_key <- read_y_api_key()
 }
+
+
 
 # y_api_key <- read_file('keys/y_api_key') %>% str_trim()
 
