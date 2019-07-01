@@ -16,6 +16,7 @@ budget_id <- 'last-used'
 spender <- 'Ryder'
 
 # Get the Expenses Google Sheet by its key,
+gs_auth()
 exp_gs <- read_file('keys/expenses_sheet_id') %>% str_trim() %>% gs_key()
 
 
